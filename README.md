@@ -104,18 +104,57 @@ Generic `run` uses API-native variables. For example, the raw `calendar` operati
 
 For GraphQL operations, `--endpoint main|auth|reports|partner` selects the service. REST operations use their declared accounting or workout service. Subscriptions use `watch`, with a bounded observation window of 1–60 seconds. Service access is subject to your Abler permissions. Browser-only login operations are unavailable through the generic executor.
 
-## Writes and dry runs
+## Write actions
 
-Mutations are blocked unless explicitly confirmed:
+Write support is included in both the CLI and MCP server. Most writes use the **generic mutation executor**, not separate action-specific MCP tools.
+
+| Action | Catalog operations |
+| --- | --- |
+| Respond to attendance and add a comment | `SetPlayerAttendance`, `setPlayerAttendanceV3` |
+| Compose a message or reply to a conversation | `MessageCompose`, `MessageReply` |
+| Mark a conversation or all conversations as read | `MarkAsRead`, `MarkAllAsRead` |
+| Update profile information and preferences | `updateUser`, `UserSettingsUpdate` |
+| Join or leave an event | `UserJoinEvent`, `UserLeaveEvent` |
+| Manage events, groups, members, invitations, and resources | Additional catalog mutations; account permissions apply |
+| Manage registrations, subscriptions, invoices, and payments | Additional catalog mutations; account permissions apply |
+
+These are available request contracts, not a guarantee that every action is supported for every account. Inspect the exact variables first:
 
 ```sh
-abler run SetPlayerAttendance --vars-file /path/to/action.json --dry-run
-abler run SetPlayerAttendance --vars-file /path/to/action.json --yes
+abler operations list --kind mutation --search message
+abler operations show MessageReply
+abler operations show SetPlayerAttendance
 ```
 
-`attendance set` is an alias for `SetPlayerAttendance`. Its `id` is an **attendance-record ID**, not an event ID. Inspect the operation contract and use valid IDs and status values from your account.
+### CLI writes
 
-Dry runs validate the request without executing it. Mutations are never automatically retried. Agents should obtain approval for the exact action and arguments before using write commands.
+Mutations are blocked unless `--yes` is supplied. Use `--dry-run` to review the request without network access:
+
+```sh
+abler run MessageReply --vars-file /path/to/reply.json --dry-run
+# Execute only after reviewing and approving the recipient/thread and text:
+abler run MessageReply --vars-file /path/to/reply.json --yes
+```
+
+Example `reply.json` (replace the placeholder with a conversation ID from your account):
+
+```json
+{
+  "conversationId": "CONVERSATION_ID",
+  "messageText": "Your approved reply"
+}
+```
+
+Attendance also has a CLI alias:
+
+```sh
+abler attendance set --vars-file /path/to/attendance.json --dry-run
+abler attendance set --vars-file /path/to/attendance.json --yes
+```
+
+`attendance set` calls `SetPlayerAttendance`. Its `id` is an **attendance-record ID**, not an event ID. Inspect the operation contract and use valid IDs and status values from your account.
+
+Mutations are never automatically retried. Agents should obtain approval for the exact action and arguments before executing writes.
 
 ## MCP server
 
@@ -151,13 +190,50 @@ Read-only tools:
 | `abler_query` | Execute a catalog read operation |
 | `abler_watch` | Observe a subscription for a bounded interval |
 
-To expose mutation tooling:
+### Enable MCP writes
+
+The default MCP server is read-only. Start it with `--allow-writes` to add the write tool:
 
 ```sh
 abler mcp --allow-writes
 ```
 
-This adds `abler_mutate`, which defaults to a dry run and requires `confirm: true` to execute. Authentication remains a CLI workflow. MCP configuration must be added to each client that should connect to the server.
+Or enable writes in your MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "abler": {
+      "command": "abler",
+      "args": ["mcp", "--allow-writes"]
+    }
+  }
+}
+```
+
+| Write tool | Inputs | Behavior |
+| --- | --- | --- |
+| `abler_mutate` | `operation`, `variables`, optional `endpoint`, optional `confirm` | Dry-run by default; executes only with `confirm: true` |
+
+Example MCP tool call for reviewing a reply:
+
+```json
+{
+  "name": "abler_mutate",
+  "arguments": {
+    "operation": "MessageReply",
+    "variables": {
+      "conversationId": "CONVERSATION_ID",
+      "messageText": "Your approved reply"
+    },
+    "confirm": false
+  }
+}
+```
+
+After approving the exact conversation and text, make the same call with `confirm: true` to send it. Without `--allow-writes`, `abler_mutate` is not exposed at all. `abler_query` cannot execute mutations.
+
+Authentication remains a CLI workflow. MCP configuration must be added to each client that should connect to the server.
 
 ## Configuration
 
