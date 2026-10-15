@@ -1,0 +1,17 @@
+node_modules/
+abler
+*.log
+.env
+.env.*
+.auth/
+dist/
+data/
+media/
+*session*.json
+*storage-state*.json
+browser-profile/
+*.har
+*.saz
+*.pcap
+*.png
+*.jpg
