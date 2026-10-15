@@ -27,7 +27,33 @@ abler login verify --stdin
 abler doctor
 ```
 
-Enter the SMS code through stdin. Login uses the normal browser flow, including reCAPTCHA. If a challenge requires interaction, use `--headed` on a computer with a display and complete it normally. A pending verification requires the same login browser.
+Enter the SMS code through stdin. When typing directly in a terminal, enter the code, press Enter, then send EOF (Ctrl+D on Unix).
+
+### Headless login (default)
+
+`login start` launches **headless Chrome/Chromium in the background on the machine running the CLI**. No browser window opens, and no desktop or display server is needed. The terminal-only experience still uses a real browser to run Abler’s login page and reCAPTCHA; it is not a browser-free authentication flow.
+
+Install Chrome/Chromium on that machine before logging in. On Linux, common system executable paths are detected automatically. For another installation location, set the executable explicitly:
+
+```sh
+export ABLER_CHROME="/path/to/chromium"
+abler login start --phone "$ABLER_PHONE"
+abler login verify --stdin
+abler doctor
+abler login close
+```
+
+Node.js, the installed project dependencies, and the built login helper must also be available. A headless browser still needs its operating-system shared libraries. Keep the same login browser running between `start` and `verify`; closing it before verification loses the pending form. After successful verification, close it with `login close`: normal API and MCP requests use the saved session without a browser.
+
+### Interactive challenges
+
+Headless login is not guaranteed to pass every reCAPTCHA assessment. If a challenge requires human interaction, use a computer with a display and launch visibly:
+
+```sh
+abler login start --phone "$ABLER_PHONE" --headed
+```
+
+Complete the challenge in that browser, then verify the received code through the CLI. Do not repeatedly request codes if one is already pending. `--headed` needs a usable graphical display; it does not provide a remote viewer on a headless server.
 
 ```sh
 abler login refresh
