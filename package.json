@@ -3,15 +3,29 @@
 	"version": "0.1.0",
 	"private": true,
 	"type": "module",
-	"description": "Abler CLI and MCP server with browser-assisted login and standalone GraphQL access",
+	"description": "Unofficial Abler CLI and MCP server with browser-assisted login and GraphQL access",
+	"license": "MIT",
+	"author": "Axel Paul Gunnarsson",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/axelpaul/abler-cli.git"
+	},
+	"homepage": "https://github.com/axelpaul/abler-cli#readme",
+	"bugs": {
+		"url": "https://github.com/axelpaul/abler-cli/issues"
+	},
+	"engines": {
+		"bun": ">=1.1.0"
+	},
 	"bin": {
 		"abler": "src/index.ts"
 	},
 	"scripts": {
-		"build": "bun run build:login && bun build --compile src/index.ts --outfile abler",
+		"start": "bun src/index.ts",
+		"serve": "bun src/index.ts serve",
 		"test": "bun test",
 		"typecheck": "tsc --noEmit",
-		"check": "bun run build:login && bun run typecheck && bun test",
+		"check": "bun run typecheck && bun test",
 		"build:login": "bun build --target=node --format=esm --external playwright-core src/login-command.ts --outfile dist/login-helper.mjs"
 	},
 	"dependencies": {

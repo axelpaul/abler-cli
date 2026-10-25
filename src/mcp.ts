@@ -3,9 +3,15 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { Service } from "./service.ts";
 import { safeMessage } from "./client.ts";
-export async function startMcp(allowWrites = false) {
-	const server = new McpServer({ name: "abler", version: "0.1.0" });
-	const service = new Service();
+import { version } from "./version.ts";
+/** Writes are opt-in: `--allow-writes` or ABLER_MCP_ENABLE_WRITES=1. */
+export function writesEnabled(flag = false, env = process.env) {
+	return flag || ["1", "true", "yes"].includes(
+		(env.ABLER_MCP_ENABLE_WRITES ?? "").toLowerCase(),
+	);
+}
+export function createServer(allowWrites = false, service = new Service()) {
+	const server = new McpServer({ name: "abler", version });
 	const result = (data: unknown) => ({
 		content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
 	});
@@ -89,7 +95,7 @@ export async function startMcp(allowWrites = false) {
 			inputSchema: { eventId: z.string().min(1) },
 			annotations: read,
 		},
-		wrap((a) => service.execute("event", a)),
+		wrap((a) => service.event(a.eventId)),
 	);
 	server.registerTool(
 		"abler_messages",
@@ -102,7 +108,21 @@ export async function startMcp(allowWrites = false) {
 			},
 			annotations: read,
 		},
-		wrap((a) => service.execute("message", { first: 20, ...a })),
+		wrap((a) => service.messages(a)),
+	);
+	server.registerTool(
+		"abler_attendance",
+		{
+			description:
+				"Read the attendance list (players and their responses) for an event. Same as `abler attendance <event-id>`. Use pageInfo cursor as `after` for the next page.",
+			inputSchema: {
+				eventId: z.string().min(1),
+				first: z.number().int().min(1).max(100).optional(),
+				after: z.string().optional(),
+			},
+			annotations: read,
+		},
+		wrap((a) => service.attendance(a.eventId, { first: a.first, after: a.after })),
 	);
 	server.registerTool(
 		"abler_operations",
@@ -117,14 +137,17 @@ export async function startMcp(allowWrites = false) {
 			},
 			annotations: read,
 		},
-		wrap((a) => {
-			const all = service.list(a.search, a.kind);
-			return {
-				total: all.length,
-				operations: all.slice(a.offset, a.offset + a.limit),
-				nextOffset: a.offset + a.limit < all.length ? a.offset + a.limit : null,
-			};
-		}),
+		wrap((a) => service.operationsPage(a.search, a.kind, a.offset, a.limit)),
+	);
+	server.registerTool(
+		"abler_operation",
+		{
+			description:
+				"Show one recovered operation: variables, transport, availability and the full GraphQL document. Same as `abler operations show <name>`.",
+			inputSchema: { name: z.string().min(1) },
+			annotations: read,
+		},
+		wrap((a) => service.operationDetail(a.name)),
 	);
 	server.registerTool(
 		"abler_watch",
@@ -163,7 +186,7 @@ export async function startMcp(allowWrites = false) {
 			"abler_mutate",
 			{
 				description:
-					"Execute a recovered mutation ONLY after user approval of its exact action and arguments. No automatic retry. Returns dry-run plan unless confirm=true.",
+					"Execute a recovered mutation (e.g. SetPlayerAttendance, MessageReply) ONLY after user approval of its exact action and arguments. No automatic retry. Returns a dry-run plan unless confirm=true. Only registered when ABLER_MCP_ENABLE_WRITES=1 or --allow-writes.",
 				inputSchema: {
 					operation: z.string(),
 					variables: z.record(z.string(), z.unknown()).default({}),
@@ -192,5 +215,8 @@ export async function startMcp(allowWrites = false) {
 				return service.execute(op.name, a.variables, true, a.endpoint);
 			}),
 		);
-	await server.connect(new StdioServerTransport());
+	return server;
+}
+export async function startMcp(allowWrites = false) {
+	await createServer(allowWrites).connect(new StdioServerTransport());
 }

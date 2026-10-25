@@ -36,3 +36,13 @@ test("CLI rejects unknown options and malformed variables", async () => {
 		"JSON object",
 	);
 });
+
+test("--version prints package.json version and --help lists serve", async () => {
+	const pkg = await Bun.file(resolve("package.json")).json();
+	const v = await cli(["--version"]);
+	expect(v.exit).toBe(0);
+	expect(v.out.trim()).toBe(pkg.version);
+	const h = await cli(["--help"]);
+	expect(h.out).toContain("serve");
+	expect(h.out).toContain(pkg.version);
+});

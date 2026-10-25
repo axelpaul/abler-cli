@@ -1,6 +1,6 @@
 import { restPlan } from "./rest.ts";
 import { Client } from "./client.ts";
-import { prepare, operations, summarize } from "./catalog.ts";
+import { prepare, operations, operation, summarize } from "./catalog.ts";
 export class Service {
 	constructor(public client = new Client()) {}
 	async execute(
@@ -58,5 +58,47 @@ export class Service {
 					x.name.toLowerCase().includes(filter.toLowerCase()),
 			)
 			.map(summarize);
+	}
+	operationsPage(
+		search = "",
+		kind?: string,
+		offset = 0,
+		limit = 30,
+	) {
+		if (kind && !["query", "mutation", "subscription"].includes(kind))
+			throw Error("Invalid operation kind");
+		if (
+			!Number.isInteger(offset) ||
+			offset < 0 ||
+			!Number.isInteger(limit) ||
+			limit < 1 ||
+			limit > 1000
+		)
+			throw Error("Invalid offset/limit");
+		const all = this.list(search, kind);
+		return {
+			total: all.length,
+			operations: all.slice(offset, offset + limit),
+			nextOffset: offset + limit < all.length ? offset + limit : null,
+		};
+	}
+	operationDetail(name: string) {
+		const op = operation(name);
+		return { ...summarize(op), document: op.document };
+	}
+	event(eventId: string) {
+		return this.execute("event", { eventId });
+	}
+	messages(variables: Record<string, unknown> = {}) {
+		return this.execute("message", { first: 20, ...variables });
+	}
+	attendance(
+		eventId: string,
+		options: { first?: number; after?: string } = {},
+	) {
+		const defined = Object.fromEntries(
+			Object.entries(options).filter(([, x]) => x !== undefined),
+		);
+		return this.execute("eventPlayer", { eventId, first: 20, ...defined });
 	}
 }

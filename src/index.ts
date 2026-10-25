@@ -2,10 +2,38 @@
 import { parseArgs } from "node:util";
 import { readFileSync } from "node:fs";
 import { Service } from "./service.ts";
-import { operation, prepare, summarize } from "./catalog.ts";
+import { prepare } from "./catalog.ts";
 import { importSession, logoutLocal, authDir } from "./session.ts";
 import { safeMessage } from "./client.ts";
-const help = `Abler CLI 0.1.0 — browser-assisted login, standalone API, MCP\n\nUsage: abler <command> [options]\n\n  login start --phone <number-or-email> [--cdp <loopback-url>] [--headed]\n  login verify --stdin [--cdp <loopback-url>]\n  login import --file <private-storage-state-or-session>\n  login refresh | login close | logout\n  doctor | me | family | groups\n  events [--month N --year N | --week N] [--cursor CURSOR]\n  event <event-id>\n  messages [--first 20 --cursor CURSOR]\n  operations list [--search TEXT --kind query|mutation] [--limit N --offset N]\n  operations show <name>\n  run <operation> [--vars '{...}' | --vars-file FILE] [--dry-run | --yes]\n  schema [--search TEXT]        Alias for operations list\n  watch <subscription> [--seconds 10 --max-events 10] [--vars '{...}']\n  attendance <event-id> [--first 20 --cursor CURSOR]\n  attendance set --vars '{...}' [--dry-run | --yes]\n  mcp [--allow-writes]          stdio MCP; read-only by default\n  version\n\nAll results are JSON; --json is accepted. Queries preserve API pagination.\nMutations need --yes; --dry-run validates without network access.\nBrowser login may require human challenge completion; never bypasses CAPTCHA.\nConfig: ABLER_CONFIG_DIR, ABLER_CHROME. No tokens printed.\n`;
+import { version } from "./version.ts";
+const help = `abler ${version} — unofficial Abler CLI and MCP server
+
+Usage: abler <command> [options]
+
+  login start --phone <number-or-email> [--cdp <loopback-url>] [--headed]
+  login verify --stdin [--cdp <loopback-url>]
+  login import --file <private-storage-state-or-session>
+  login refresh | login close | logout
+  doctor | me | family | groups
+  events [--month N --year N | --week N] [--cursor CURSOR]
+  event <event-id>
+  messages [--first 20 --cursor CURSOR]
+  operations list [--search TEXT --kind query|mutation|subscription] [--limit N --offset N]
+  operations show <name>
+  run <operation> [--vars '{...}' | --vars-file FILE] [--dry-run | --yes]
+  schema [--search TEXT]        Alias for operations list
+  watch <subscription> [--seconds 10 --max-events 10] [--vars '{...}']
+  attendance <event-id> [--first 20 --cursor CURSOR]
+  attendance set --vars '{...}' [--dry-run | --yes]
+  serve [--allow-writes]        Start the MCP stdio server (read-only by default;
+                                writes also via ABLER_MCP_ENABLE_WRITES=1). Alias: mcp
+  version | --version | --help
+
+All results are JSON; --json is accepted. Queries preserve API pagination.
+Mutations need --yes; --dry-run validates without network access.
+Browser login may require human challenge completion; never bypasses CAPTCHA.
+Config: ABLER_CONFIG_DIR, ABLER_CHROME, ABLER_NODE. No tokens printed.
+`;
 export async function main(argv = process.argv.slice(2)) {
 	const { values: v, positionals: p } = parseArgs({
 		args: argv,
@@ -13,6 +41,7 @@ export async function main(argv = process.argv.slice(2)) {
 		options: {
 			json: { type: "boolean" },
 			help: { type: "boolean", short: "h" },
+			version: { type: "boolean", short: "v" },
 			yes: { type: "boolean" },
 			"dry-run": { type: "boolean" },
 			"allow-writes": { type: "boolean" },
@@ -40,6 +69,10 @@ export async function main(argv = process.argv.slice(2)) {
 	const [cmd, sub, id] = p;
 	let out: unknown;
 	const svc = new Service();
+	if (v.version && !cmd) {
+		console.log(version);
+		return;
+	}
 	if (v.help || !cmd) {
 		console.log(help);
 		return;
@@ -72,11 +105,12 @@ export async function main(argv = process.argv.slice(2)) {
 	};
 	switch (cmd) {
 		case "version":
-			out = { version: "0.1.0" };
+			out = { version };
 			break;
+		case "serve":
 		case "mcp": {
-			const { startMcp } = await import("./mcp.ts");
-			await startMcp(v["allow-writes"]);
+			const { startMcp, writesEnabled } = await import("./mcp.ts");
+			await startMcp(writesEnabled(v["allow-writes"]));
 			return;
 		}
 		case "doctor":
@@ -96,7 +130,7 @@ export async function main(argv = process.argv.slice(2)) {
 			break;
 		case "event":
 			if (!sub) throw Error("Supply event ID");
-			out = await svc.execute("event", { eventId: sub });
+			out = await svc.event(sub);
 			break;
 		case "watch": {
 			if (!sub) throw Error("Supply subscription name");
@@ -125,9 +159,7 @@ export async function main(argv = process.argv.slice(2)) {
 				const vars = variables(),
 					numbers = ints();
 				delete numbers.cursor;
-				out = await svc.execute("eventPlayer", {
-					eventId: sub,
-					first: 20,
+				out = await svc.attendance(sub, {
 					...vars,
 					...numbers,
 					...(v.cursor ? { after: v.cursor } : {}),
@@ -135,11 +167,7 @@ export async function main(argv = process.argv.slice(2)) {
 			}
 			break;
 		case "messages":
-			out = await svc.execute("message", {
-				first: 20,
-				...variables(),
-				...ints(),
-			});
+			out = await svc.messages({ ...variables(), ...ints() });
 			break;
 		case "logout":
 			logoutLocal();
@@ -195,28 +223,14 @@ export async function main(argv = process.argv.slice(2)) {
 		case "operations":
 			if (sub === "show") {
 				if (!id) throw Error("Supply operation name");
-				const op = operation(id);
-				out = { ...summarize(op), document: op.document };
-			} else {
-				if (v.kind && !["query", "mutation", "subscription"].includes(v.kind))
-					throw Error("Invalid operation kind");
-				const all = svc.list(v.search, v.kind);
-				const offset = Number(v.offset ?? 0),
-					limit = Number(v.limit ?? 30);
-				if (
-					!Number.isInteger(offset) ||
-					offset < 0 ||
-					!Number.isInteger(limit) ||
-					limit < 1 ||
-					limit > 1000
-				)
-					throw Error("Invalid offset/limit");
-				out = {
-					total: all.length,
-					operations: all.slice(offset, offset + limit),
-					nextOffset: offset + limit < all.length ? offset + limit : null,
-				};
-			}
+				out = svc.operationDetail(id);
+			} else
+				out = svc.operationsPage(
+					v.search,
+					v.kind,
+					Number(v.offset ?? 0),
+					Number(v.limit ?? 30),
+				);
 			break;
 		case "run": {
 			if (!sub) throw Error("Supply operation name");

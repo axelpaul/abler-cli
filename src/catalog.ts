@@ -94,7 +94,7 @@ export function prepare(
 		);
 	if (op.kind !== "query" && !write)
 		throw Error(
-			"Mutation blocked: explicitly confirm with --yes (MCP also requires --allow-writes).",
+			"Mutation blocked: explicitly confirm with --yes (MCP also requires ABLER_MCP_ENABLE_WRITES=1 or --allow-writes, then confirm=true).",
 		);
 	validateVariables(op, variables);
 	return { op, document: documentFor(op) };
