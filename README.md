@@ -1,5 +1,7 @@
 # Abler CLI + MCP
 
+[MCP setup and client configuration](MCP.md)
+
 A command-line client and Model Context Protocol server for Abler. Read schedules, events, attendance, family memberships, and conversations, with JSON output for scripts and agents.
 
 ## Requirements
@@ -252,3 +254,10 @@ Alternatively, set `executablePath` in a private `browser.json` within the confi
 bun run check
 bun run build
 ```
+
+## Shared MCP conventions
+
+`abler serve` starts the stdio server (`mcp` remains an alias).
+`abler --version` reports the CLI version. Writes remain disabled unless
+`ABLER_MCP_ENABLE_WRITES=1` or `--allow-writes` is set at startup;
+each mutation retains its existing explicit confirmation/dry-run checks.
