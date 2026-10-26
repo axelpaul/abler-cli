@@ -1,0 +1,136 @@
+{
+  "$schema": "https://mcp.axelpaul.is/catalog.schema.json",
+  "id": "abler",
+  "repo": "axelpaul/abler-cli",
+  "name": "Abler",
+  "service": "Abler",
+  "serviceUrl": "https://www.abler.io",
+  "tagline": "Training schedules, event sign-ups and messages in Abler",
+  "description": "Check your family’s training sessions and events in Abler, see who’s signed up and read messages from coaches. You can also respond to events and send messages if you enable changes.",
+  "examples": [
+    "When is the next football practice?",
+    "Who's signed up for Saturday's match?",
+    "Show me the latest messages from the coach."
+  ],
+  "category": "Kids & family",
+  "auth": "phone or email + SMS code (browser-assisted login; needs Node.js and Chrome/Chromium)",
+  "binaries": false,
+  "requires": "Bun 1.1+, plus Node.js and Chrome/Chromium for the one-time login",
+  "tools": [
+    {
+      "name": "abler_doctor",
+      "write": false,
+      "description": "Check the saved session and API access"
+    },
+    {
+      "name": "abler_me",
+      "write": false,
+      "description": "Account identity"
+    },
+    {
+      "name": "abler_family",
+      "write": false,
+      "description": "Children and family links"
+    },
+    {
+      "name": "abler_groups",
+      "write": false,
+      "description": "Memberships, groups and roles"
+    },
+    {
+      "name": "abler_events",
+      "write": false,
+      "description": "Calendar events by month, week or cursor"
+    },
+    {
+      "name": "abler_event",
+      "write": false,
+      "description": "Event details by ID"
+    },
+    {
+      "name": "abler_attendance",
+      "write": false,
+      "description": "Attendance list for an event"
+    },
+    {
+      "name": "abler_messages",
+      "write": false,
+      "description": "Conversations and messages (read only)"
+    },
+    {
+      "name": "abler_operations",
+      "write": false,
+      "description": "Paginated catalog of recovered API operations"
+    },
+    {
+      "name": "abler_operation",
+      "write": false,
+      "description": "One operation's variables and GraphQL document"
+    },
+    {
+      "name": "abler_query",
+      "write": false,
+      "description": "Execute a catalog query operation"
+    },
+    {
+      "name": "abler_watch",
+      "write": false,
+      "description": "Observe a real-time subscription for a bounded interval"
+    },
+    {
+      "name": "abler_mutate",
+      "write": true,
+      "description": "Execute a catalog mutation; dry-run unless confirm is true"
+    }
+  ],
+  "commands": [
+    "abler login start --phone <number-or-email>",
+    "abler login verify --stdin",
+    "abler doctor",
+    "abler me",
+    "abler family",
+    "abler groups",
+    "abler events --month 10 --year 2026",
+    "abler event <event-id>",
+    "abler attendance <event-id>",
+    "abler messages --first 20",
+    "abler operations list --search <text>",
+    "abler operations show <name>",
+    "abler run <operation> --vars '{...}' [--dry-run | --yes]",
+    "abler watch <subscription> --seconds 10",
+    "abler serve"
+  ],
+  "envVars": [
+    {
+      "name": "ABLER_CONFIG_DIR",
+      "description": "Config/session directory (default ~/.config/abler)"
+    },
+    {
+      "name": "ABLER_CHROME",
+      "description": "Chrome/Chromium executable used for login"
+    },
+    {
+      "name": "ABLER_NODE",
+      "description": "Node.js executable for the login helper (default node)"
+    },
+    {
+      "name": "ABLER_SOURCE_DIR",
+      "description": "Package/checkout directory if the CLI cannot locate it"
+    },
+    {
+      "name": "ABLER_MCP_ENABLE_WRITES",
+      "description": "Set to 1 to register the MCP write tool"
+    }
+  ],
+  "writesEnvVar": "ABLER_MCP_ENABLE_WRITES",
+  "is": {
+    "tagline": "Æfingar, viðburðir og skilaboð í Abler",
+    "description": "Skoðaðu æfingatíma og viðburði fjölskyldunnar í Abler, hverjir eru skráðir og skilaboð frá þjálfurum. Einnig er hægt að skrá mætingu og senda skilaboð ef þú leyfir breytingar.",
+    "examples": [
+      "Hvenær er næsta fótboltaæfing?",
+      "Hverjir eru skráðir á leikinn á laugardaginn?",
+      "Sýndu mér nýjustu skilaboðin frá þjálfaranum."
+    ],
+    "requires": "Bun 1.1 eða nýrra, auk Node.js og Chrome eða Chromium fyrir fyrstu innskráningu"
+  }
+}
