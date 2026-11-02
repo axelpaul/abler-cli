@@ -5,7 +5,7 @@ import { Service } from "./service.ts";
 import { operation, prepare, summarize } from "./catalog.ts";
 import { importSession, logoutLocal, authDir } from "./session.ts";
 import { safeMessage } from "./client.ts";
-const help = `Abler CLI 0.1.0 — browser-assisted login, standalone API, MCP\n\nUsage: abler <command> [options]\n\n  login start --phone <number-or-email> [--cdp <loopback-url>] [--headed]\n  login verify --stdin [--cdp <loopback-url>]\n  login import --file <private-storage-state-or-session>\n  login refresh | login close | logout\n  doctor | me | family | groups\n  events [--month N --year N | --week N] [--cursor CURSOR]\n  event <event-id>\n  messages [--first 20 --cursor CURSOR]\n  operations list [--search TEXT --kind query|mutation] [--limit N --offset N]\n  operations show <name>\n  run <operation> [--vars '{...}' | --vars-file FILE] [--dry-run | --yes]\n  schema [--search TEXT]        Alias for operations list\n  watch <subscription> [--seconds 10 --max-events 10] [--vars '{...}']\n  attendance <event-id> [--first 20 --cursor CURSOR]\n  attendance set --vars '{...}' [--dry-run | --yes]\n  mcp [--allow-writes]          stdio MCP; read-only by default\n  version\n\nAll results are JSON; --json is accepted. Queries preserve API pagination.\nMutations need --yes; --dry-run validates without network access.\nBrowser login may require human challenge completion; never bypasses CAPTCHA.\nConfig: ABLER_CONFIG_DIR, ABLER_CHROME. No tokens printed.\n`;
+const help = `Abler CLI 0.1.0 — browser-assisted login, standalone API, MCP\n\nUsage: abler <command> [options]\n\n  login start --phone <number-or-email> [--cdp <loopback-url>] [--headed]\n  login verify --stdin [--cdp <loopback-url>]\n  login import --file <private-storage-state-or-session>\n  login refresh | login close | logout\n  doctor | me | family | groups\n  events [--month N --year N | --week N] [--cursor CURSOR]\n  event <event-id>\n  messages [--first 20 --cursor CURSOR]\n  operations list [--search TEXT --kind query|mutation] [--limit N --offset N]\n  operations show <name>\n  run <operation> [--vars '{...}' | --vars-file FILE] [--dry-run | --yes]\n  schema [--search TEXT]        Alias for operations list\n  watch <subscription> [--seconds 10 --max-events 10] [--vars '{...}']\n  attendance <event-id> [--first 20 --cursor CURSOR]\n  attendance set --vars '{...}' [--dry-run | --yes]\n  serve [--allow-writes]          stdio MCP; read-only by default\n  version\n\nAll results are JSON; --json is accepted. Queries preserve API pagination.\nMutations need --yes; --dry-run validates without network access.\nBrowser login may require human challenge completion; never bypasses CAPTCHA.\nConfig: ABLER_CONFIG_DIR, ABLER_CHROME. No tokens printed.\n`;
 export async function main(argv = process.argv.slice(2)) {
 	const { values: v, positionals: p } = parseArgs({
 		args: argv,
@@ -13,6 +13,7 @@ export async function main(argv = process.argv.slice(2)) {
 		options: {
 			json: { type: "boolean" },
 			help: { type: "boolean", short: "h" },
+			version: { type: "boolean" },
 			yes: { type: "boolean" },
 			"dry-run": { type: "boolean" },
 			"allow-writes": { type: "boolean" },
@@ -37,7 +38,8 @@ export async function main(argv = process.argv.slice(2)) {
 			endpoint: { type: "string" },
 		},
 	});
-	const [cmd, sub, id] = p;
+	const [parsedCommand, sub, id] = p;
+	const cmd = v.version ? "version" : parsedCommand;
 	let out: unknown;
 	const svc = new Service();
 	if (v.help || !cmd) {
@@ -74,9 +76,10 @@ export async function main(argv = process.argv.slice(2)) {
 		case "version":
 			out = { version: "0.1.0" };
 			break;
+		case "serve":
 		case "mcp": {
 			const { startMcp } = await import("./mcp.ts");
-			await startMcp(v["allow-writes"]);
+			await startMcp(v["allow-writes"] || process.env.ABLER_MCP_ENABLE_WRITES === "1");
 			return;
 		}
 		case "doctor":

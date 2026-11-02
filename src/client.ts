@@ -94,7 +94,7 @@ export class Client {
 	async graphql(
 		document: string,
 		variables: Record<string, unknown> = {},
-		endpoint: "main" | "auth" | "reports" | "partner" = "main",
+		endpoint: "main" | "auth" | "reports" | "partner" | "posts" = "main",
 	) {
 		return withLock(async () => {
 			const session = load();
@@ -108,6 +108,7 @@ export class Client {
 						auth: "/auth/graphql",
 						reports: "/reports/api/graphql",
 						partner: "/partner-api/graphql",
+						posts: "/posts/graphql",
 					}[endpoint],
 					{ query: document, variables },
 					session,
